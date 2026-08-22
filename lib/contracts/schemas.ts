@@ -217,6 +217,22 @@ export const ToolCallLogEntrySchema = z.object({
   nodeId: z.string().optional(),
 });
 export type ToolCallLogEntry = z.infer<typeof ToolCallLogEntrySchema>;
+// ── ExecutionProgressEvent (실행 진행 이벤트) ─────────────
+
+export const AGENT_NAMES = ["scout", "compiler", "policy", "executor", "verifier"] as const;
+export const AgentNameSchema = z.enum(AGENT_NAMES);
+export type AgentName = z.infer<typeof AgentNameSchema>;
+
+export const ExecutionProgressEventSchema = z.discriminatedUnion("type", [
+  z.object({ type: z.literal("stage_changed"), executionId: z.string(), stage: ExecutionStatusSchema }),
+  z.object({ type: z.literal("agent_started"), executionId: z.string(), agent: AgentNameSchema }),
+  z.object({ type: z.literal("agent_completed"), executionId: z.string(), agent: AgentNameSchema }),
+  z.object({ type: z.literal("tool_called"), executionId: z.string(), tool: z.string(), agent: AgentNameSchema.optional() }),
+  z.object({ type: z.literal("node_completed"), executionId: z.string(), nodeId: z.string() }),
+  z.object({ type: z.literal("node_failed"), executionId: z.string(), nodeId: z.string(), reason: z.string() }),
+]);
+export type ExecutionProgressEvent = z.infer<typeof ExecutionProgressEventSchema>;
+
 // ── Execution (Cosmos DB 문서) ─────────────────────────────
 
 export const ExecutionSchema = z.object({

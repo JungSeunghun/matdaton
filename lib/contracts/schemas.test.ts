@@ -1,6 +1,7 @@
 import { describe, expect, it } from "vitest";
 import {
   ExecutionContractSchema,
+  ExecutionProgressEventSchema,
   ExecutionStatusSchema,
   MetricEventNameSchema,
   OvernightDiffSchema,
@@ -130,4 +131,44 @@ describe("MetricEventNameSchema", () => {
       expect(MetricEventNameSchema.parse(name)).toBe(name);
     },
   );
+});
+
+describe("ExecutionProgressEventSchema", () => {
+  it("accepts a stage_changed event with a valid execution status", () => {
+    const event = ExecutionProgressEventSchema.parse({
+      type: "stage_changed",
+      executionId: "exec_01",
+      stage: "scouting",
+    });
+    expect(event).toEqual({ type: "stage_changed", executionId: "exec_01", stage: "scouting" });
+  });
+
+  it("accepts a tool_called event with an optional agent", () => {
+    const event = ExecutionProgressEventSchema.parse({
+      type: "tool_called",
+      executionId: "exec_01",
+      tool: "github.create_todo_issue",
+      agent: "executor",
+    });
+    expect(event.type).toBe("tool_called");
+    expect(
+      ExecutionProgressEventSchema.parse({
+        type: "tool_called",
+        executionId: "exec_01",
+        tool: "github.create_todo_issue",
+      }).type,
+    ).toBe("tool_called");
+  });
+
+  it("rejects unknown event types and invalid stage values", () => {
+    expect(() =>
+      ExecutionProgressEventSchema.parse({ type: "unknown_event", executionId: "exec_01" }),
+    ).toThrow();
+    expect(() =>
+      ExecutionProgressEventSchema.parse({ type: "stage_changed", executionId: "exec_01", stage: "warming_up" }),
+    ).toThrow();
+    expect(() =>
+      ExecutionProgressEventSchema.parse({ type: "agent_started", executionId: "exec_01", agent: "planner" }),
+    ).toThrow();
+  });
 });

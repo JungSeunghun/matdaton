@@ -5,6 +5,7 @@ import type {
   Execution,
   ExecutionContract,
   ExecutionMode,
+  ExecutionProgressEvent,
   ExecutionStatus,
   MetricEventName,
   NodeResult,
@@ -31,7 +32,7 @@ export type WorkflowDeps = {
   checkUrlExists: (url: string) => Promise<boolean>;
   checkArtifactExists?: (nodeResult: NodeResult) => Promise<boolean>;
   inferContract?: (input: { repoRef: string; diff: OvernightDiff }) => Promise<ExecutionContract>;
-  emitProgress: (event: { executionId: string; stage: string; detail?: unknown }) => void;
+  emitProgress: (event: ExecutionProgressEvent) => void;
   now?: () => Date;
 };
 
@@ -124,7 +125,7 @@ export async function startExecution(input: StartExecutionInput, deps: WorkflowD
 
     stage = "scouting";
     await transition(deps, input.userId, executionId, "created", "scouting");
-    deps.emitProgress({ executionId, stage: "scouting" });
+    deps.emitProgress({ type: "stage_changed", executionId, stage: "scouting" });
     const sinceIso = new Date(startedAt.getTime() - 24 * 60 * 60 * 1000).toISOString();
     const overnightDiff = await collectOvernightDiff(
       { repoRef: input.repoRef, icsUrl: input.icsUrl, sinceIso, dateUtc: toDateUtc(startedAt) },
@@ -134,7 +135,7 @@ export async function startExecution(input: StartExecutionInput, deps: WorkflowD
 
     stage = "compiling";
     await transition(deps, input.userId, executionId, "scouting", "compiling");
-    deps.emitProgress({ executionId, stage: "compiling" });
+    deps.emitProgress({ type: "stage_changed", executionId, stage: "compiling" });
     const compiled = await compileExecutionContract({
       executionId,
       repoRef: input.repoRef,
@@ -148,19 +149,19 @@ export async function startExecution(input: StartExecutionInput, deps: WorkflowD
 
     stage = "policy_check";
     await transition(deps, input.userId, executionId, "compiling", "policy_check");
-    deps.emitProgress({ executionId, stage: "policy_check" });
+    deps.emitProgress({ type: "stage_changed", executionId, stage: "policy_check" });
     const policyReport = runPolicyChecks({ contract, repoRef: input.repoRef });
     await deps.store.updateExecution(input.userId, executionId, { policyReport });
 
     if (input.mode === "daily") {
       stage = "waiting_approval";
       await transition(deps, input.userId, executionId, "policy_check", "waiting_approval");
-      deps.emitProgress({ executionId, stage: "waiting_approval" });
+      deps.emitProgress({ type: "stage_changed", executionId, stage: "waiting_approval" });
     } else {
       // judge 모드는 승인·쓰기 도구 없이 읽기 전용으로 검증까지 완주
       stage = "verifying";
       await transition(deps, input.userId, executionId, "policy_check", "verifying");
-      deps.emitProgress({ executionId, stage: "verifying" });
+      deps.emitProgress({ type: "stage_changed", executionId, stage: "verifying" });
       const receipt = await runVerifierRules(
         {
           mode: "judge",
@@ -221,7 +222,7 @@ export async function approveExecution(input: ApproveExecutionInput, deps: Workf
   await deps.store.updateExecution(input.userId, execution.id, { approval: token });
 
   await transition(deps, input.userId, execution.id, "waiting_approval", "executing");
-  deps.emitProgress({ executionId: execution.id, stage: "executing" });
+  deps.emitProgress({ type: "stage_changed", executionId: execution.id, stage: "executing" });
 
   const toolCallLog: ToolCallLogEntry[] = [...(execution.toolCallLog ?? [])];
   const executionResult = await executeApprovedNodes(
@@ -252,7 +253,7 @@ export async function approveExecution(input: ApproveExecutionInput, deps: Workf
   await deps.store.updateExecution(input.userId, execution.id, { executionResult, toolCallLog });
 
   await transition(deps, input.userId, execution.id, "executing", "verifying");
-  deps.emitProgress({ executionId: execution.id, stage: "verifying" });
+  deps.emitProgress({ type: "stage_changed", executionId: execution.id, stage: "verifying" });
 
   const receipt = await runVerifierRules(
     {

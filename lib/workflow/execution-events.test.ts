@@ -9,24 +9,25 @@ describe("createExecutionEventBus", () => {
     bus.subscribe("exec_a", listenerA);
     bus.subscribe("exec_b", listenerB);
 
-    bus.publish({ executionId: "exec_a", stage: "scouting" });
+    bus.publish({ type: "stage_changed", executionId: "exec_a", stage: "scouting" });
 
     expect(listenerA).toHaveBeenCalledTimes(1);
-    expect(listenerA).toHaveBeenCalledWith({ executionId: "exec_a", stage: "scouting" });
+    expect(listenerA).toHaveBeenCalledWith({ type: "stage_changed", executionId: "exec_a", stage: "scouting" });
     expect(listenerB).not.toHaveBeenCalled();
   });
 
-  it("passes detail through to listeners", () => {
+  it("passes discriminated event payloads through to listeners", () => {
     const bus = createExecutionEventBus();
     const listener = vi.fn();
     bus.subscribe("exec_a", listener);
 
-    bus.publish({ executionId: "exec_a", stage: "compiling", detail: { progress: 0.5 } });
+    bus.publish({ type: "tool_called", executionId: "exec_a", tool: "github.create_todo_issue", agent: "executor" });
 
     expect(listener).toHaveBeenCalledWith({
+      type: "tool_called",
       executionId: "exec_a",
-      stage: "compiling",
-      detail: { progress: 0.5 },
+      tool: "github.create_todo_issue",
+      agent: "executor",
     });
   });
 
@@ -37,7 +38,7 @@ describe("createExecutionEventBus", () => {
     bus.subscribe("exec_a", first);
     bus.subscribe("exec_a", second);
 
-    bus.publish({ executionId: "exec_a", stage: "verifying" });
+    bus.publish({ type: "stage_changed", executionId: "exec_a", stage: "verifying" });
 
     expect(first).toHaveBeenCalledTimes(1);
     expect(second).toHaveBeenCalledTimes(1);
@@ -49,14 +50,14 @@ describe("createExecutionEventBus", () => {
     const unsubscribe = bus.subscribe("exec_a", listener);
 
     unsubscribe();
-    bus.publish({ executionId: "exec_a", stage: "scouting" });
+    bus.publish({ type: "stage_changed", executionId: "exec_a", stage: "scouting" });
 
     expect(listener).not.toHaveBeenCalled();
   });
 
   it("does not throw when publishing with no subscribers", () => {
     const bus = createExecutionEventBus();
-    expect(() => bus.publish({ executionId: "exec_none", stage: "scouting" })).not.toThrow();
+    expect(() => bus.publish({ type: "stage_changed", executionId: "exec_none", stage: "scouting" })).not.toThrow();
   });
 });
 
