@@ -223,16 +223,6 @@ export const AGENT_NAMES = ["scout", "compiler", "policy", "executor", "verifier
 export const AgentNameSchema = z.enum(AGENT_NAMES);
 export type AgentName = z.infer<typeof AgentNameSchema>;
 
-export const ExecutionProgressEventSchema = z.discriminatedUnion("type", [
-  z.object({ type: z.literal("stage_changed"), executionId: z.string(), stage: ExecutionStatusSchema }),
-  z.object({ type: z.literal("agent_started"), executionId: z.string(), agent: AgentNameSchema }),
-  z.object({ type: z.literal("agent_completed"), executionId: z.string(), agent: AgentNameSchema }),
-  z.object({ type: z.literal("tool_called"), executionId: z.string(), tool: z.string(), agent: AgentNameSchema.optional() }),
-  z.object({ type: z.literal("node_completed"), executionId: z.string(), nodeId: z.string() }),
-  z.object({ type: z.literal("node_failed"), executionId: z.string(), nodeId: z.string(), reason: z.string() }),
-]);
-export type ExecutionProgressEvent = z.infer<typeof ExecutionProgressEventSchema>;
-
 // ── Execution (Cosmos DB 문서) ─────────────────────────────
 
 export const ExecutionSchema = z.object({
@@ -255,3 +245,17 @@ export const ExecutionSchema = z.object({
   traceId: z.string(),
 });
 export type Execution = z.infer<typeof ExecutionSchema>;
+
+// UI 표시용 부가 필드(at·step·total·summary)는 optional — 기존 발행부와 하위 호환.
+// execution_updated는 단계별 스냅샷 전달, stream_error는 스트림 이상 통보용 (PLAN 2.1 접점).
+export const ExecutionProgressEventSchema = z.discriminatedUnion("type", [
+  z.object({ type: z.literal("stage_changed"), executionId: z.string(), stage: ExecutionStatusSchema, at: z.string().optional() }),
+  z.object({ type: z.literal("agent_started"), executionId: z.string(), agent: AgentNameSchema, step: z.number().int().positive().optional(), total: z.number().int().positive().optional(), at: z.string().optional() }),
+  z.object({ type: z.literal("agent_completed"), executionId: z.string(), agent: AgentNameSchema, summary: z.string().optional(), at: z.string().optional() }),
+  z.object({ type: z.literal("tool_called"), executionId: z.string(), tool: z.string(), agent: AgentNameSchema.optional(), summary: z.string().optional(), at: z.string().optional() }),
+  z.object({ type: z.literal("node_completed"), executionId: z.string(), nodeId: z.string(), at: z.string().optional() }),
+  z.object({ type: z.literal("node_failed"), executionId: z.string(), nodeId: z.string(), reason: z.string(), at: z.string().optional() }),
+  z.object({ type: z.literal("execution_updated"), executionId: z.string(), execution: ExecutionSchema, at: z.string().optional() }),
+  z.object({ type: z.literal("stream_error"), executionId: z.string(), message: z.string(), at: z.string().optional() }),
+]);
+export type ExecutionProgressEvent = z.infer<typeof ExecutionProgressEventSchema>;

@@ -14,10 +14,10 @@ export async function POST(request: Request) {
   }
 
   const repoRef = repoUrl.replace(/^https?:\/\/github\.com\//, "").replace(/\/+$/, "");
-  const id = mockExecutionId();
+  const id = mockExecutionId("judge");
   const execution = mockExecution(id, {
     mode: "judge",
-    status: "waiting_approval",
+    status: "created",
     repoRef,
   });
   return NextResponse.json({ ...execution, userId: "judge" });

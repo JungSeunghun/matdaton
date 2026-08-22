@@ -1,9 +1,19 @@
 // MOCK: 실제 파이프라인 연결 전 프론트엔드 개발용 임시 응답
+// 모든 형태는 lib/contracts/schemas.ts(zod)를 따른다 (PLAN 2.1).
+import type {
+  EvidenceReceipt,
+  Execution,
+  ExecutionContract,
+  ExecutionProgressEvent,
+  ExecutionResult,
+  PolicyReport,
+} from "@/lib/contracts/schemas";
 
 const REPO_URL = "https://github.com/octocat/hello-world";
+const MOCK_CONTRACT_HASH = "mockhash_3f9c2a71d84b56e0";
 
-export function mockExecutionId(): string {
-  return `exec_mock_${Date.now()}_${Math.random().toString(36).slice(2, 8)}`;
+export function mockExecutionId(mode: "daily" | "judge" = "daily"): string {
+  return `exec_mock_${mode}_${Date.now()}_${Math.random().toString(36).slice(2, 8)}`;
 }
 
 export function mockOvernightDiff() {
@@ -55,7 +65,7 @@ export function mockOvernightDiff() {
   };
 }
 
-export function mockContract(executionId: string) {
+export function mockContract(executionId: string): ExecutionContract {
   return {
     executionId,
     actions: [
@@ -64,7 +74,7 @@ export function mockContract(executionId: string) {
         title: "PR #17 리뷰 요청 응답 — 재시도 백오프 로직 검토",
         evidenceUrls: [`${REPO_URL}/pull/17`],
         successCriteria: "PR #17에 리뷰 코멘트가 남고 승인/변경요청 상태가 된다",
-        forbidden: ["force-push", "PR merge", "브랜치 삭제"],
+        estimatedMinutes: 25,
       },
       {
         nodeId: "node-2",
@@ -74,7 +84,7 @@ export function mockContract(executionId: string) {
           `${REPO_URL}/commit/7fd1a60b01f91b314f59955a4e4d4e80d8edf11d`,
         ],
         successCriteria: "이슈 #42에 원인 분석 코멘트 초안이 저장된다",
-        forbidden: ["이슈 close", "라벨 삭제"],
+        estimatedMinutes: 40,
       },
       {
         nodeId: "node-3",
@@ -83,37 +93,78 @@ export function mockContract(executionId: string) {
           `${REPO_URL}/commit/553c2077f0edc3d5dc5d17262f6aa498e69d6f8e`,
         ],
         successCriteria: "후속 작업 할 일 이슈가 저장소에 생성된다",
-        forbidden: ["기존 이슈 수정", "마일스톤 변경"],
+        estimatedMinutes: 15,
       },
     ],
-    contractHash: "mockhash_3f9c2a71d84b56e0",
+    prepNodes: [
+      {
+        nodeId: "node-1",
+        tool: "github.create_todo_issue",
+        args: { title: "리뷰: PR #17 재시도 백오프", labels: ["first-move"] },
+        preview: "[할 일 이슈] 리뷰: PR #17 재시도 백오프 — first-move 라벨",
+      },
+      {
+        nodeId: "node-2",
+        tool: "drafts.save_issue_comment",
+        args: { issueNumber: 42 },
+        preview: "[코멘트 초안] #42 원인 분석 — 게시하지 않고 저장만",
+      },
+      {
+        nodeId: "node-3",
+        tool: "github.create_todo_issue",
+        args: { title: "커밋 후속 작업 정리", labels: ["first-move"] },
+        preview: "[할 일 이슈] 커밋 후속 작업 정리 — first-move 라벨",
+      },
+    ],
+    forbiddenScope: ["force-push", "PR merge", "브랜치 삭제", "이슈 close", "라벨 삭제"],
+    noChanges: false,
   };
 }
 
-export function mockPolicyReport(executionId: string) {
+export function mockPolicyReport(executionId: string): PolicyReport {
   return {
     executionId,
-    findings: [
+    nodeFindings: [
       { nodeId: "node-1", verdict: "allowed", reasons: [] },
       { nodeId: "node-2", verdict: "allowed", reasons: [] },
       { nodeId: "node-3", verdict: "allowed", reasons: [] },
     ],
-    blockedNodes: [],
+  };
+}
+
+export function mockExecutionResult(executionId: string, approvedNodeIds?: string[]): ExecutionResult {
+  const approved = new Set(approvedNodeIds ?? ["node-1", "node-2", "node-3"]);
+  const tools = {
+    "node-1": "github.create_todo_issue",
+    "node-2": "drafts.save_issue_comment",
+    "node-3": "github.create_todo_issue",
+  } as const;
+  return {
+    executionId,
+    nodeResults: (["node-1", "node-2", "node-3"] as const).map((nodeId) => ({
+      nodeId,
+      tool: tools[nodeId],
+      status: approved.has(nodeId) ? ("succeeded" as const) : ("skipped" as const),
+      resourceUrl: approved.has(nodeId) ? `${REPO_URL}/issues/43` : undefined,
+      idempotencyKey: `${executionId}:${nodeId}`,
+    })),
   };
 }
 
 export function mockExecution(
   id: string,
-  overrides: { status?: string; mode?: "daily" | "judge"; repoRef?: string } = {},
-) {
+  overrides: { status?: Execution["status"]; mode?: "daily" | "judge"; repoRef?: string } = {},
+): Execution {
   return {
     id,
     userId: "mock-user",
     repoRef: overrides.repoRef ?? "octocat/hello-world",
     mode: overrides.mode ?? "daily",
     status: overrides.status ?? "created",
+    startedAt: new Date().toISOString(),
     overnightDiff: mockOvernightDiff(),
     contract: mockContract(id),
+    contractHash: MOCK_CONTRACT_HASH,
     policyReport: mockPolicyReport(id),
     traceId: `trace_mock_${id}`,
   };
@@ -125,7 +176,7 @@ export function mockApprovalToken(executionId: string, approvedNodeIds: string[]
   return {
     executionId,
     approvedNodeIds,
-    approvedHash: "mockhash_3f9c2a71d84b56e0",
+    approvedHash: MOCK_CONTRACT_HASH,
     allowedTools: ["github.create_todo_issue", "drafts.save_issue_comment"],
     issuedAt: issuedAt.toISOString(),
     expiresAt: expiresAt.toISOString(),
@@ -133,11 +184,11 @@ export function mockApprovalToken(executionId: string, approvedNodeIds: string[]
   };
 }
 
-export function mockReceipt(executionId: string) {
+export function mockReceipt(executionId: string, startupSeconds = 84): EvidenceReceipt {
   return {
     executionId,
     mode: "daily",
-    rules: [
+    ruleResults: [
       {
         name: "근거 URL 실존",
         passed: true,
@@ -146,7 +197,7 @@ export function mockReceipt(executionId: string) {
       {
         name: "생성물 실존",
         passed: true,
-        evidence: `할 일 이슈 ${REPO_URL}/issues/43 및 코멘트 초안 2건 재조회 성공`,
+        evidence: `할 일 이슈 ${REPO_URL}/issues/43 및 코멘트 초안 재조회 성공`,
       },
       {
         name: "금지 행동 부재",
@@ -164,14 +215,32 @@ export function mockReceipt(executionId: string) {
         evidence: "모든 쓰기 호출이 allowedTools 범위 내에서 수행됨",
       },
     ],
-    startupSeconds: 84,
+    checkedScope: ["근거 URL", "생성물", "금지 행동", "승인 해시", "허용 도구"],
+    startupSeconds,
     savedMinutes: 28,
     issuedAt: new Date().toISOString(),
   };
 }
 
+export function mockJudgeReceipt(executionId: string): EvidenceReceipt {
+  return {
+    executionId,
+    mode: "judge",
+    ruleResults: [
+      { name: "수집 완료", passed: true, evidence: "커밋·이슈·리뷰·일정 수집 완료" },
+      { name: "실행 계약 컴파일", passed: true, evidence: "우선 행동 3개 · 스키마 검증 통과" },
+      { name: "근거 URL 실존", passed: true, evidence: "URL 전수 2xx 확인" },
+      { name: "금지 행동 부재", passed: true, evidence: "쓰기 API 호출 0건 (읽기 전용)" },
+    ],
+    checkedScope: ["수집", "계약 컴파일", "근거 URL", "금지 행동 (승인 해시·90초 타이머는 읽기 전용이라 제외)"],
+    startupSeconds: null,
+    savedMinutes: null,
+    issuedAt: new Date().toISOString(),
+  };
+}
+
 export function mockDailyMetrics(days = 7) {
-  const result: { date: string; startupSeconds: number; savedMinutes: number }[] = [];
+  const result: { date: string; startupSeconds: number; savedMinutes: number; evidenceLinkRate: number }[] = [];
   const today = new Date();
   for (let i = days - 1; i >= 0; i--) {
     const d = new Date(today);
@@ -180,26 +249,55 @@ export function mockDailyMetrics(days = 7) {
       date: d.toISOString().slice(0, 10),
       startupSeconds: 70 + ((i * 13) % 40),
       savedMinutes: 20 + ((i * 7) % 15),
+      evidenceLinkRate: 1,
     });
   }
   return result;
 }
 
-export function mockStreamEvents(executionId: string) {
+export function mockStreamEvents(executionId: string): ExecutionProgressEvent[] {
+  const judge = executionId.includes("judge");
+  const at = () => new Date().toISOString();
+  const total = judge ? 4 : 6;
+  const snapshot = (status: Execution["status"], extra: Partial<Execution> = {}): ExecutionProgressEvent => ({
+    type: "execution_updated",
+    executionId,
+    execution: { ...mockExecution(executionId, { status, mode: judge ? "judge" : "daily" }), ...extra },
+    at: at(),
+  });
+
+  const common: ExecutionProgressEvent[] = [
+    { type: "stage_changed", executionId, stage: "scouting", at: at() },
+    { type: "agent_started", executionId, agent: "scout", step: 1, total, at: at() },
+    { type: "tool_called", executionId, tool: "github.list_commits", agent: "scout", summary: "최근 24시간 커밋 2건", at: at() },
+    { type: "tool_called", executionId, tool: "github.list_issue_events", agent: "scout", summary: "이슈 댓글 1건", at: at() },
+    { type: "tool_called", executionId, tool: "github.list_review_requests", agent: "scout", summary: "리뷰 요청 1건", at: at() },
+    { type: "tool_called", executionId, tool: "calendar.read_ics", agent: "scout", summary: "오늘 회의 1건 · 가용 5시간", at: at() },
+    { type: "agent_completed", executionId, agent: "scout", summary: "커밋 2 · 댓글 1 · 리뷰 1 · 회의 1건 수집", at: at() },
+    snapshot("scouting"),
+    { type: "stage_changed", executionId, stage: "compiling", at: at() },
+    { type: "agent_started", executionId, agent: "compiler", step: 2, total, at: at() },
+    { type: "agent_completed", executionId, agent: "compiler", summary: "우선 행동 3개 컴파일 · 근거 링크 4건 연결", at: at() },
+    snapshot("compiling"),
+    { type: "stage_changed", executionId, stage: "policy_check", at: at() },
+    { type: "agent_started", executionId, agent: "policy", step: 3, total, at: at() },
+    { type: "agent_completed", executionId, agent: "policy", summary: "인젝션 0건 · 차단 노드 0개", at: at() },
+  ];
+
+  if (judge) {
+    return [
+      ...common,
+      { type: "stage_changed", executionId, stage: "verifying", at: at() },
+      { type: "agent_started", executionId, agent: "verifier", step: 4, total, at: at() },
+      { type: "agent_completed", executionId, agent: "verifier", summary: "규칙 4/4 통과 (제한 범위)", at: at() },
+      { type: "stage_changed", executionId, stage: "completed", at: at() },
+      snapshot("completed", { receipt: mockJudgeReceipt(executionId) }),
+    ];
+  }
+
   return [
-    { type: "stage_changed", executionId, stage: "scouting" },
-    { type: "agent_started", executionId, agent: "scout" },
-    { type: "tool_called", executionId, tool: "github.list_commits", agent: "scout" },
-    { type: "tool_called", executionId, tool: "github.list_issue_events", agent: "scout" },
-    { type: "tool_called", executionId, tool: "github.list_review_requests", agent: "scout" },
-    { type: "tool_called", executionId, tool: "calendar.read_ics", agent: "scout" },
-    { type: "agent_completed", executionId, agent: "scout" },
-    { type: "stage_changed", executionId, stage: "compiling" },
-    { type: "agent_started", executionId, agent: "compiler" },
-    { type: "agent_completed", executionId, agent: "compiler" },
-    { type: "stage_changed", executionId, stage: "policy_check" },
-    { type: "agent_started", executionId, agent: "policy" },
-    { type: "agent_completed", executionId, agent: "policy" },
-    { type: "stage_changed", executionId, stage: "waiting_approval" },
+    ...common,
+    { type: "stage_changed", executionId, stage: "waiting_approval", at: at() },
+    snapshot("waiting_approval"),
   ];
 }
