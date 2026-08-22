@@ -1,6 +1,14 @@
-// MOCK: 실제 파이프라인 연결 전 프론트엔드 개발용 임시 응답
 import { NextResponse } from "next/server";
+import { getStore } from "@/lib/store/store-factory";
+
+const HEALTH_USER_ID = "__health__";
+const HEALTH_DATE = "1970-01-01";
 
 export async function GET() {
-  return NextResponse.json({ status: "ok" });
+  try {
+    await getStore().listMetricEvents(HEALTH_USER_ID, HEALTH_DATE);
+    return NextResponse.json({ status: "ok" });
+  } catch {
+    return NextResponse.json({ status: "unavailable" }, { status: 503 });
+  }
 }

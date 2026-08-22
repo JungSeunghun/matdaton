@@ -102,12 +102,12 @@ function makeVerifierDeps(deps: WorkflowDeps): VerifierDeps {
   };
 }
 
-export async function startExecution(input: StartExecutionInput, deps: WorkflowDeps): Promise<Execution> {
+export async function createExecution(input: StartExecutionInput, deps: WorkflowDeps): Promise<Execution> {
   const now = nowOf(deps);
   const startedAt = now();
   const executionId = `exec_${randomUUID()}`;
 
-  await deps.store.createExecution({
+  const execution: Execution = {
     id: executionId,
     userId: input.userId,
     repoRef: input.repoRef,
@@ -115,7 +115,19 @@ export async function startExecution(input: StartExecutionInput, deps: WorkflowD
     status: "created",
     startedAt: startedAt.toISOString(),
     traceId: `trace_${randomUUID()}`,
-  });
+  };
+  await deps.store.createExecution(execution);
+  return execution;
+}
+
+export async function runCreatedExecution(
+  input: StartExecutionInput,
+  execution: Execution,
+  deps: WorkflowDeps,
+): Promise<Execution> {
+  const now = nowOf(deps);
+  const startedAt = new Date(execution.startedAt);
+  const executionId = execution.id;
 
   let stage = "created";
   try {
@@ -189,6 +201,11 @@ export async function startExecution(input: StartExecutionInput, deps: WorkflowD
   const execution = await deps.store.getExecution(input.userId, executionId);
   if (!execution) throw new Error(`execution not found: ${executionId}`);
   return execution;
+}
+
+export async function startExecution(input: StartExecutionInput, deps: WorkflowDeps): Promise<Execution> {
+  const execution = await createExecution(input, deps);
+  return runCreatedExecution(input, execution, deps);
 }
 
 export async function approveExecution(input: ApproveExecutionInput, deps: WorkflowDeps): Promise<Execution> {

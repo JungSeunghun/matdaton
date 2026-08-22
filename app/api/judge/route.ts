@@ -1,24 +1,68 @@
-// MOCK: 실제 파이프라인 연결 전 프론트엔드 개발용 임시 응답
-import { NextResponse } from "next/server";
-import { mockExecution, mockExecutionId } from "../_mock/fixtures";
+import { z } from "zod";
+import { badRequest } from "@/lib/api/errors";
+import { createWorkflowDeps } from "@/lib/api/workflow-deps";
+import { getServerConfig } from "@/lib/config";
+import { startExecution } from "@/lib/workflow/run-execution";
 
-export async function POST(request: Request) {
-  let repoUrl = "https://github.com/octocat/hello-world";
+const JudgeBodySchema = z.strictObject({
+  repoUrl: z.string(),
+});
+
+function parseRepoRef(repoUrl: string): string | null {
+  let url: URL;
   try {
-    const body = await request.json();
-    if (typeof body?.repoUrl === "string" && body.repoUrl.length > 0) {
-      repoUrl = body.repoUrl;
-    }
+    url = new URL(repoUrl);
   } catch {
-    // body 없이 호출된 경우 기본 저장소 유지
+    return null;
   }
 
-  const repoRef = repoUrl.replace(/^https?:\/\/github\.com\//, "").replace(/\/+$/, "");
-  const id = mockExecutionId();
-  const execution = mockExecution(id, {
-    mode: "judge",
-    status: "waiting_approval",
-    repoRef,
-  });
-  return NextResponse.json({ ...execution, userId: "judge" });
+  if (
+    url.protocol !== "https:" ||
+    url.hostname !== "github.com" ||
+    url.port !== "" ||
+    url.username !== "" ||
+    url.password !== "" ||
+    url.search !== "" ||
+    url.hash !== ""
+  ) {
+    return null;
+  }
+
+  const match = /^\/([^/]+)\/([^/]+)\/?$/.exec(url.pathname);
+  if (!match) return null;
+
+  const owner = match[1];
+  const repo = match[2].endsWith(".git") ? match[2].slice(0, -4) : match[2];
+  if (!owner || !repo) return null;
+
+  return `${owner}/${repo}`;
+}
+
+export async function POST(request: Request): Promise<Response> {
+  let body: unknown;
+  try {
+    body = await request.json();
+  } catch {
+    return badRequest("요청 body는 올바른 JSON이어야 합니다");
+  }
+
+  const parsed = JudgeBodySchema.safeParse(body);
+  if (!parsed.success) return badRequest("요청 body가 올바르지 않습니다");
+
+  const repoRef = parseRepoRef(parsed.data.repoUrl);
+  if (!repoRef) return badRequest("repoUrl은 올바른 GitHub 저장소 URL이어야 합니다");
+
+  const config = getServerConfig();
+  const deps = createWorkflowDeps({ githubToken: config.judgeGithubToken });
+  const execution = await startExecution(
+    {
+      userId: "judge",
+      repoRef,
+      icsUrl: null,
+      mode: "judge",
+    },
+    deps,
+  );
+
+  return Response.json(execution, { status: 200 });
 }
