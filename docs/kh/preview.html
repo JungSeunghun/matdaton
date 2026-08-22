@@ -1,0 +1,622 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1.0" />
+<title>First Move — 디자인 프리뷰</title>
+<link rel="stylesheet" href="https://cdn.jsdelivr.net/gh/orioncactus/pretendard@v1.3.9/dist/web/variable/pretendardvariable-dynamic-subset.min.css" />
+<style>
+  :root {
+    /* 브랜드 (잉크 필) */
+    --brand-primary: #292524;
+    --brand-hover: #1C1917;
+    --brand-pressed: #0C0A09;
+    --brand-subtle: #F0EFED;
+    /* 서피스 */
+    --canvas: #F5F5F5;
+    --canvas-soft: #FAFAFA;
+    --surface-card: #FFFFFF;
+    --surface-strong: #F0EFED;
+    --surface-dark: #0C0A09;
+    /* 텍스트·헤어라인 */
+    --ink: #0C0A09;
+    --body: #4E4E4E;
+    --muted: #6B655D;
+    --muted-soft: #A8A29E;
+    --hairline: #E7E5E4;
+    --hairline-strong: #D6D3D1;
+    --text-inverse: #FFFFFF;
+    /* 시맨틱 */
+    --success: #16A34A;
+    --error: #DC2626;
+    --warning: #D97706;
+    --info: #4785FF;
+    /* 오브 (분위기 전용) */
+    --orb-lavender: #C8B8E0;
+    --orb-sky: #A8C8E8;
+    --orb-peach: #F4C5A8;
+    /* 엘리베이션 */
+    --shadow-soft: 0 4px 16px rgba(0,0,0,0.04);
+  }
+
+  * { margin: 0; padding: 0; box-sizing: border-box; }
+
+  body {
+    font-family: "Pretendard Variable", Pretendard, -apple-system, sans-serif;
+    background: var(--canvas);
+    color: var(--body);
+    font-size: 16px;
+    line-height: 1.5;
+    letter-spacing: 0.16px;
+  }
+
+  .frame { max-width: 1280px; margin: 0 auto; padding: 0 20px; }
+
+  /* ── 섹션 탭 내비게이션 (스크롤 위치 기반) ───────────────────── */
+  html { scroll-behavior: smooth; }
+  @media (prefers-reduced-motion: reduce) { html { scroll-behavior: auto; } }
+  .section-nav {
+    position: sticky; top: 0; z-index: 50;
+    background: rgba(255,255,255,0.92); backdrop-filter: blur(8px);
+    border-bottom: 1px solid var(--hairline);
+  }
+  .section-nav-inner {
+    max-width: 1280px; margin: 0 auto; padding: 0 20px;
+    display: flex; gap: 4px; overflow-x: auto; scrollbar-width: none;
+  }
+  .section-nav-inner::-webkit-scrollbar { display: none; }
+  .section-nav a {
+    display: inline-flex; align-items: center; flex-shrink: 0;
+    min-height: 44px; padding: 6px 16px; margin: 6px 0;
+    border-radius: 9999px; text-decoration: none;
+    font-size: 14px; font-weight: 500; color: var(--muted);
+  }
+  .section-nav a:hover { color: var(--ink); }
+  .section-nav a[aria-current="true"] {
+    background: var(--brand-subtle); color: var(--ink); font-weight: 600;
+  }
+  .section-nav a:focus-visible { outline: 2px solid var(--ink); outline-offset: 2px; }
+  [data-nav-section] { scroll-margin-top: 72px; }
+
+  /* ── 타이포그래피 ───────────────────── */
+  .display-xl { font-size: 48px; font-weight: 300; line-height: 1.08; letter-spacing: -0.96px; color: var(--ink); }
+  .display-lg { font-size: 36px; font-weight: 300; line-height: 1.17; letter-spacing: -0.36px; color: var(--ink); }
+  .section-title { font-size: 28px; font-weight: 700; line-height: 1.25; letter-spacing: -0.5px; color: var(--ink); }
+  .title-md { font-size: 20px; font-weight: 500; line-height: 1.35; color: var(--ink); }
+  .body-emphasis { font-size: 20px; font-weight: 600; line-height: 1.25; letter-spacing: -0.5px; }
+  .helper { font-size: 15px; line-height: 1.47; letter-spacing: 0.15px; color: var(--muted); }
+  .caption { font-size: 14px; font-weight: 500; line-height: 1.4; color: var(--muted); }
+  .caption-upper { font-size: 12px; font-weight: 600; line-height: 1.4; letter-spacing: 0.96px; text-transform: uppercase; color: var(--muted); }
+
+  /* ── 버튼 ───────────────────── */
+  .button-primary {
+    display: inline-flex; align-items: center; justify-content: center; gap: 8px;
+    height: 48px; padding: 0 32px; border-radius: 9999px;
+    background: var(--brand-primary); color: var(--text-inverse);
+    font-family: inherit; font-size: 16px; font-weight: 600; border: none; cursor: pointer;
+    transition: background 0.15s;
+  }
+  .button-primary:hover { background: var(--brand-hover); }
+  .button-primary:active { background: var(--brand-pressed); }
+  .button-outline {
+    display: inline-flex; align-items: center; justify-content: center; gap: 8px;
+    height: 40px; padding: 0 24px; border-radius: 9999px;
+    background: transparent; color: var(--ink); border: 1px solid var(--hairline-strong);
+    font-family: inherit; font-size: 15px; font-weight: 500; cursor: pointer;
+    transition: border-color 0.15s;
+  }
+  .button-outline:hover { border-color: var(--ink); }
+  .button-tertiary {
+    display: inline-flex; align-items: center; gap: 4px;
+    background: none; border: none; padding: 0; cursor: pointer;
+    font-family: inherit; font-size: 15px; font-weight: 500; color: var(--ink);
+  }
+  .button-tertiary:hover { text-decoration: underline; }
+  .button-danger-outline {
+    display: inline-flex; align-items: center; justify-content: center;
+    height: 36px; padding: 0 16px; border-radius: 9999px;
+    background: transparent; color: var(--error); border: 1px solid var(--error);
+    font-family: inherit; font-size: 14px; font-weight: 500; cursor: pointer;
+  }
+  button:focus-visible { outline: 2px solid var(--ink); outline-offset: 2px; }
+
+  /* ── 배지 ───────────────────── */
+  .badge {
+    display: inline-flex; align-items: center; gap: 6px;
+    padding: 4px 12px; border-radius: 12px;
+    font-size: 13px; font-weight: 600;
+  }
+  .badge-success { background: rgba(22,163,74,0.08); color: var(--success); }
+  .badge-error { background: rgba(220,38,38,0.08); color: var(--error); }
+  .badge-warning { background: rgba(217,119,6,0.08); color: var(--warning); }
+  .badge-info { background: rgba(71,133,255,0.08); color: var(--info); }
+  .pulse-dot {
+    width: 8px; height: 8px; border-radius: 50%; background: currentColor;
+    animation: pulse 1.4s ease-in-out infinite;
+  }
+  @keyframes pulse { 0%,100% { opacity: 1; } 50% { opacity: 0.3; } }
+  @media (prefers-reduced-motion: reduce) { .pulse-dot { animation: none; } }
+
+  /* ── 카드 ───────────────────── */
+  .card { background: var(--surface-card); border: 1px solid var(--hairline); border-radius: 16px; }
+
+  /* ── 히어로 ───────────────────── */
+  .hero {
+    position: relative; overflow: hidden;
+    padding: 96px 0 96px; text-align: center;
+  }
+  .orb { position: absolute; border-radius: 50%; filter: blur(80px); opacity: 0.55; pointer-events: none; }
+  .orb-lavender { width: 420px; height: 420px; background: var(--orb-lavender); top: -140px; left: -100px; }
+  .orb-sky { width: 380px; height: 380px; background: var(--orb-sky); bottom: -160px; right: -80px; }
+  .hero-inner { position: relative; display: flex; flex-direction: column; align-items: center; gap: 24px; }
+
+  /* ── 섹션 리듬 ───────────────────── */
+  section { padding: 48px 0; }
+  .band-soft { background: var(--canvas-soft); }
+  .section-head { display: flex; flex-direction: column; gap: 8px; margin-bottom: 24px; }
+
+  /* ── Overnight Diff ───────────────────── */
+  .diff-row {
+    display: flex; align-items: center; gap: 16px;
+    min-height: 56px; padding: 12px 20px;
+  }
+  .diff-row + .diff-row { border-top: 1px solid var(--hairline); }
+  .icon-plate {
+    flex-shrink: 0; width: 32px; height: 32px; border-radius: 9999px;
+    background: var(--surface-strong); display: flex; align-items: center; justify-content: center;
+    font-size: 15px;
+  }
+  .diff-main { flex: 1; min-width: 0; display: flex; flex-direction: column; gap: 2px; }
+  .diff-time { flex-shrink: 0; font-size: 14px; font-weight: 500; color: var(--muted-soft); }
+
+  /* ── 실행 계약 캔버스 ───────────────────── */
+  .contract-stack { display: flex; flex-direction: column; gap: 16px; }
+  .contract-card { padding: 20px; position: relative; }
+  .contract-card.disabled { background: var(--surface-strong); border-color: var(--hairline); }
+  .contract-card.disabled .title-md,
+  .contract-card.disabled li,
+  .contract-card.disabled .helper { color: var(--muted-soft); }
+  .contract-head { display: flex; align-items: flex-start; justify-content: space-between; gap: 16px; }
+  .contract-card ul { margin: 12px 0 0 0; padding-left: 20px; display: flex; flex-direction: column; gap: 4px; font-size: 15px; }
+  .contract-tools { margin-top: 12px; display: flex; gap: 8px; flex-wrap: wrap; }
+  .tool-chip {
+    font-size: 12px; font-weight: 500; padding: 2px 8px; border-radius: 4px;
+    background: var(--brand-subtle); color: var(--muted); font-family: ui-monospace, monospace;
+  }
+  .contract-forbidden {
+    margin-top: 16px; padding-top: 12px; border-top: 1px solid var(--hairline);
+    display: flex; align-items: center; gap: 6px;
+    font-size: 14px; font-weight: 500; color: var(--error);
+  }
+  /* 토글 */
+  .toggle { position: relative; width: 44px; height: 24px; flex-shrink: 0; cursor: pointer; }
+  .toggle input { opacity: 0; width: 100%; height: 100%; position: absolute; margin: 0; cursor: pointer; }
+  .toggle-track {
+    position: absolute; inset: 0; border-radius: 9999px;
+    background: var(--hairline-strong); transition: background 0.15s;
+  }
+  .toggle input:checked + .toggle-track { background: var(--brand-primary); }
+  .toggle-track::after {
+    content: ""; position: absolute; top: 2px; left: 2px;
+    width: 20px; height: 20px; border-radius: 50%; background: #fff;
+    transition: transform 0.15s;
+  }
+  .toggle input:checked + .toggle-track::after { transform: translateX(20px); }
+  .toggle input:focus-visible + .toggle-track { outline: 2px solid var(--ink); outline-offset: 2px; }
+
+  /* 하단 고정 바 */
+  .approve-bar {
+    position: sticky; bottom: 0; z-index: 10;
+    background: var(--surface-card); border-top: 1px solid var(--hairline);
+    box-shadow: var(--shadow-soft);
+    padding: 16px 0; padding-bottom: calc(16px + env(safe-area-inset-bottom));
+  }
+  .approve-bar-inner { display: flex; align-items: center; justify-content: space-between; gap: 16px; }
+
+  /* ── 증거 영수증 ───────────────────── */
+  .receipt {
+    max-width: 480px; margin: 0 auto;
+    background: var(--surface-card); border-radius: 16px;
+    box-shadow: var(--shadow-soft); overflow: hidden;
+  }
+  .receipt-head {
+    background: var(--surface-dark); color: var(--text-inverse);
+    padding: 24px 20px; display: flex; justify-content: space-between; align-items: baseline; gap: 16px;
+  }
+  .receipt-row {
+    display: flex; align-items: center; justify-content: space-between; gap: 12px;
+    padding: 14px 20px; font-size: 15px;
+  }
+  .receipt-row + .receipt-row { border-top: 1px solid var(--hairline); }
+  .receipt-rule { display: flex; flex-direction: column; gap: 2px; min-width: 0; }
+  .receipt-foot {
+    border-top: 1px solid var(--hairline); padding: 14px 20px;
+    display: flex; flex-wrap: wrap; gap: 8px 16px; align-items: center;
+    font-size: 14px; font-weight: 500; color: var(--muted);
+  }
+  .receipt-foot .mono { font-family: ui-monospace, monospace; font-size: 13px; }
+  .link-info { color: var(--info); text-decoration: none; font-weight: 500; }
+  .link-info:hover { text-decoration: underline; }
+
+  /* ── 누적 대시보드 ───────────────────── */
+  .dash-grid { display: grid; grid-template-columns: 2fr 1fr; gap: 24px; align-items: stretch; }
+  .chart-card { padding: 20px; display: flex; flex-direction: column; gap: 16px; }
+  .bars { display: flex; align-items: flex-end; gap: 12px; height: 140px; padding-top: 8px; }
+  .bar-col { flex: 1; display: flex; flex-direction: column; align-items: center; gap: 6px; height: 100%; justify-content: flex-end; }
+  .bar { width: 100%; max-width: 40px; background: var(--ink); border-radius: 4px 4px 0 0; }
+  .bar-label { font-size: 12px; color: var(--muted-soft); }
+  .dash-meta { display: flex; flex-wrap: wrap; gap: 8px 20px; font-size: 14px; font-weight: 500; color: var(--muted); }
+  .stat-card { padding: 20px; display: flex; flex-direction: column; gap: 12px; justify-content: center; }
+  .stat-value { font-size: 36px; font-weight: 300; letter-spacing: -0.36px; color: var(--ink); line-height: 1.1; }
+  .stat-value .unit { font-size: 20px; font-weight: 500; }
+  .stat-delta { color: var(--success); font-size: 15px; font-weight: 600; }
+
+  /* ── Judge Mode ───────────────────── */
+  .judge-form { display: flex; gap: 12px; flex-wrap: wrap; }
+  .input {
+    flex: 1; min-width: 240px; height: 44px; padding: 0 16px;
+    background: var(--surface-card); border: 1px solid var(--hairline-strong); border-radius: 8px;
+    font-family: inherit; font-size: 15px; color: var(--ink);
+  }
+  .input::placeholder { color: var(--muted-soft); }
+  .input:focus { outline: none; border: 2px solid var(--ink); padding: 0 15px; }
+  .timeline { margin-top: 24px; display: flex; flex-direction: column; }
+  .tl-step { display: flex; gap: 16px; }
+  .tl-rail { display: flex; flex-direction: column; align-items: center; width: 24px; flex-shrink: 0; }
+  .tl-dot {
+    width: 12px; height: 12px; border-radius: 50%; margin-top: 5px; flex-shrink: 0;
+    border: 2px solid var(--hairline-strong); background: var(--canvas);
+  }
+  .tl-dot.done { background: var(--success); border-color: var(--success); }
+  .tl-dot.active { background: var(--info); border-color: var(--info); animation: pulse 1.4s ease-in-out infinite; }
+  .tl-line { width: 2px; flex: 1; background: var(--hairline); min-height: 24px; }
+  .tl-body { padding-bottom: 24px; display: flex; flex-direction: column; gap: 4px; }
+  .tl-name { font-size: 16px; font-weight: 600; color: var(--ink); }
+  .tl-step.pending .tl-name { color: var(--muted-soft); font-weight: 500; }
+
+  /* ── 반응형 ───────────────────── */
+  @media (max-width: 640px) {
+    .display-xl { font-size: 32px; }
+    .display-lg { font-size: 28px; }
+    .hero { padding: 64px 0; }
+    section { padding: 32px 0; }
+    .dash-grid { grid-template-columns: 1fr; }
+    .button-primary.mobile-full { width: 100%; height: 52px; }
+    .approve-bar-inner { flex-direction: column; align-items: stretch; text-align: center; }
+    .orb-lavender { width: 260px; height: 260px; }
+    .orb-sky { width: 240px; height: 240px; }
+  }
+</style>
+</head>
+<body>
+
+<nav class="section-nav" aria-label="섹션 이동">
+  <div class="section-nav-inner">
+    <a href="#hero" aria-current="true">하루 시작</a>
+    <a href="#diff">Overnight Diff</a>
+    <a href="#contract">실행 계약</a>
+    <a href="#states">상태 배지</a>
+    <a href="#receipt">증거 영수증</a>
+    <a href="#dashboard">대시보드</a>
+    <a href="#judge">Judge Mode</a>
+  </div>
+</nav>
+
+<!-- 4.1 하루 시작 히어로 -->
+<header class="hero" id="hero" data-nav-section>
+  <div class="orb orb-lavender" aria-hidden="true"></div>
+  <div class="orb orb-sky" aria-hidden="true"></div>
+  <div class="frame hero-inner">
+    <p class="caption-upper">First Move</p>
+    <h1 class="display-xl">오늘의 첫 수를 두세요</h1>
+    <p class="caption">마지막 실행 · 어제 08:41 · 시동 84초 · 절약 28분</p>
+    <button class="button-primary mobile-full" style="height:52px; padding:0 48px;">하루 시작</button>
+    <p class="helper">밤사이 변경을 90초 안에 실행 계약으로 컴파일합니다</p>
+  </div>
+</header>
+
+<!-- 4.2 Overnight Diff 카드 -->
+<section class="band-soft" id="diff" data-nav-section>
+  <div class="frame">
+    <div class="section-head">
+      <p class="caption-upper">Overnight Diff</p>
+      <h2 class="display-lg">밤사이 3개 소스에서 6건 수집</h2>
+    </div>
+    <div class="card">
+      <div class="diff-row">
+        <span class="icon-plate" aria-hidden="true">⌥</span>
+        <div class="diff-main">
+          <span class="title-md" style="font-size:16px;">커밋 3건 · feat: verifier 규칙 추가 외 2</span>
+          <button class="button-tertiary">근거 열기 →</button>
+        </div>
+        <span class="diff-time">02:14 KST</span>
+      </div>
+      <div class="diff-row">
+        <span class="icon-plate" aria-hidden="true">⎌</span>
+        <div class="diff-main">
+          <span class="title-md" style="font-size:16px;">리뷰 요청 1건 · #128 영수증 스키마</span>
+          <button class="button-tertiary">근거 열기 →</button>
+        </div>
+        <span class="diff-time">07:02 KST</span>
+      </div>
+      <div class="diff-row">
+        <span class="icon-plate" aria-hidden="true">✉</span>
+        <div class="diff-main">
+          <span class="title-md" style="font-size:16px;">이슈 코멘트 2건 · #121 승인 게이트 질문</span>
+          <button class="button-tertiary">근거 열기 →</button>
+        </div>
+        <span class="diff-time">07:48 KST</span>
+      </div>
+    </div>
+  </div>
+</section>
+
+<!-- 4.3 실행 계약 캔버스 (드라이런) -->
+<section id="contract" data-nav-section>
+  <div class="frame">
+    <div class="section-head">
+      <p class="caption-upper">Dry Run</p>
+      <h2 class="display-lg">실행 계약 — 우선 행동 3개</h2>
+      <p class="helper">토글을 끄면 삭제가 아닌 제외 처리됩니다. 금지 범위는 항상 노출됩니다.</p>
+    </div>
+
+    <div class="contract-stack">
+      <article class="card contract-card">
+        <div class="contract-head">
+          <h3 class="title-md">#128 리뷰 요청에 영수증 스키마 회신</h3>
+          <label class="toggle"><input type="checkbox" checked aria-label="이 노드 실행 여부" /><span class="toggle-track"></span></label>
+        </div>
+        <ul>
+          <li>성공 조건: 스키마 필드 3개 코멘트로 회신</li>
+          <li>성공 조건: 리뷰어 재요청 상태 해제</li>
+        </ul>
+        <div class="contract-tools">
+          <span class="tool-chip">github.comment</span>
+          <span class="tool-chip">github.review</span>
+        </div>
+        <p class="contract-forbidden"><span aria-hidden="true">⛔</span> 금지 범위: main 브랜치 직접 푸시</p>
+      </article>
+
+      <article class="card contract-card">
+        <div class="contract-head">
+          <h3 class="title-md">verifier 규칙 실패 2건 재현 후 이슈 갱신</h3>
+          <label class="toggle"><input type="checkbox" checked aria-label="이 노드 실행 여부" /><span class="toggle-track"></span></label>
+        </div>
+        <ul>
+          <li>성공 조건: 실패 로그 원문 링크 포함</li>
+          <li>성공 조건: 재현 커맨드 1개 검증</li>
+        </ul>
+        <div class="contract-tools">
+          <span class="tool-chip">shell.run</span>
+          <span class="tool-chip">github.issue</span>
+        </div>
+        <p class="contract-forbidden"><span aria-hidden="true">⛔</span> 금지 범위: 테스트 스냅샷 자동 갱신</p>
+      </article>
+
+      <article class="card contract-card disabled">
+        <div class="contract-head">
+          <h3 class="title-md">주간 회고 초안 생성</h3>
+          <label class="toggle"><input type="checkbox" aria-label="이 노드 실행 여부" /><span class="toggle-track"></span></label>
+        </div>
+        <ul>
+          <li>성공 조건: 커밋·이슈 근거 링크 5개 이상</li>
+        </ul>
+        <div class="contract-tools">
+          <span class="tool-chip">docs.write</span>
+        </div>
+        <p class="contract-forbidden" style="color: var(--muted-soft);"><span aria-hidden="true">⛔</span> 금지 범위: 외부 공유 채널 발행</p>
+      </article>
+    </div>
+  </div>
+
+  <!-- 하단 고정 승인 바 -->
+  <div class="approve-bar" style="margin-top:32px;">
+    <div class="frame approve-bar-inner">
+      <div>
+        <span class="body-emphasis" style="color: var(--ink);">2개 노드 실행 예정</span>
+        <span class="badge badge-warning" style="margin-left:12px;"><span aria-hidden="true">●</span> 승인 대기</span>
+      </div>
+      <div style="display:flex; gap:12px; align-items:center; flex-wrap:wrap;">
+        <button class="button-outline">드라이런 다시 보기</button>
+        <button class="button-primary">승인하고 실행</button>
+      </div>
+    </div>
+  </div>
+</section>
+
+<!-- 4.4 상태 배지 모음 -->
+<section class="band-soft" id="states" data-nav-section>
+  <div class="frame">
+    <div class="section-head">
+      <p class="caption-upper">States</p>
+      <h2 class="display-lg">승인 게이트 상태 배지</h2>
+    </div>
+    <div style="display:flex; gap:12px; flex-wrap:wrap; align-items:center;">
+      <span class="badge badge-info"><span class="pulse-dot" aria-hidden="true"></span> Scout 수집 중 · 2/6</span>
+      <span class="badge badge-warning"><span aria-hidden="true">◐</span> 승인 대기</span>
+      <span class="badge badge-success"><span aria-hidden="true">✓</span> 규칙 통과</span>
+      <span class="badge badge-error"><span aria-hidden="true">✕</span> 차단 · 금지 범위 접근</span>
+      <button class="button-danger-outline">이 노드 제외</button>
+    </div>
+  </div>
+</section>
+
+<!-- 4.5 증거 영수증 -->
+<section id="receipt" data-nav-section>
+  <div class="frame">
+    <div class="section-head" style="text-align:center; align-items:center;">
+      <p class="caption-upper">Receipt</p>
+      <h2 class="display-lg">증거 영수증</h2>
+    </div>
+    <div class="receipt">
+      <div class="receipt-head">
+        <div>
+          <p class="caption-upper" style="color: var(--muted-soft);">시동 시간</p>
+          <p class="body-emphasis" style="font-size:28px;">84초</p>
+        </div>
+        <div style="text-align:right;">
+          <p class="caption-upper" style="color: var(--muted-soft);">절약</p>
+          <p class="body-emphasis" style="font-size:28px; color:#4ADE80;">28분</p>
+        </div>
+      </div>
+      <div class="receipt-row">
+        <div class="receipt-rule">
+          <span style="font-weight:600; color:var(--ink);">근거 링크 포함 규칙</span>
+          <a class="link-info" href="#" style="font-size:14px;">근거 보기 →</a>
+        </div>
+        <span class="badge badge-success"><span aria-hidden="true">✓</span> 통과</span>
+      </div>
+      <div class="receipt-row">
+        <div class="receipt-rule">
+          <span style="font-weight:600; color:var(--ink);">금지 범위 미접근 규칙</span>
+          <a class="link-info" href="#" style="font-size:14px;">근거 보기 →</a>
+        </div>
+        <span class="badge badge-success"><span aria-hidden="true">✓</span> 통과</span>
+      </div>
+      <div class="receipt-row">
+        <div class="receipt-rule">
+          <span style="font-weight:600; color:var(--ink);">중복 실행 방지 규칙</span>
+          <a class="link-info" href="#" style="font-size:14px;">근거 보기 →</a>
+        </div>
+        <span class="badge badge-error"><span aria-hidden="true">✕</span> 실패</span>
+      </div>
+      <div class="receipt-foot">
+        <span class="mono">executionId: fm_20260822_0841</span>
+        <a class="link-info" href="#">trace 보기 →</a>
+        <span>2026-08-22 08:41 KST</span>
+      </div>
+    </div>
+  </div>
+</section>
+
+<!-- 4.6 누적 대시보드 -->
+<section class="band-soft" id="dashboard" data-nav-section>
+  <div class="frame">
+    <div class="section-head">
+      <p class="caption-upper">Dashboard</p>
+      <h2 class="display-lg">누적 시동 기록</h2>
+    </div>
+    <div class="dash-grid">
+      <div class="card chart-card">
+        <div style="display:flex; justify-content:space-between; align-items:center; flex-wrap:wrap; gap:8px;">
+          <h3 class="title-md">일별 시동 시간 (초)</h3>
+          <span class="badge badge-warning"><span aria-hidden="true">◐</span> 데이터 수집 중 · 표본 8회</span>
+        </div>
+        <div class="bars" role="img" aria-label="일별 시동 시간 막대 차트, 최근 7일 78초에서 112초 사이">
+          <div class="bar-col"><div class="bar" style="height:78%"></div><span class="bar-label">월</span></div>
+          <div class="bar-col"><div class="bar" style="height:92%"></div><span class="bar-label">화</span></div>
+          <div class="bar-col"><div class="bar" style="height:70%"></div><span class="bar-label">수</span></div>
+          <div class="bar-col"><div class="bar" style="height:84%"></div><span class="bar-label">목</span></div>
+          <div class="bar-col"><div class="bar" style="height:64%"></div><span class="bar-label">금</span></div>
+          <div class="bar-col"><div class="bar" style="height:58%"></div><span class="bar-label">토</span></div>
+          <div class="bar-col"><div class="bar" style="height:52%"></div><span class="bar-label">일</span></div>
+        </div>
+        <div class="dash-meta">
+          <span>표본 8회</span>
+          <span>중앙값 86초</span>
+          <span>관찰 기간 2026-08-14 ~ 08-22</span>
+        </div>
+      </div>
+      <div class="card stat-card">
+        <p class="caption-upper">누적 절약</p>
+        <p class="stat-value">3<span class="unit">시간</span> 42<span class="unit">분</span></p>
+        <p class="stat-delta">✓ 전주 대비 +34분</p>
+        <p class="helper">모든 수치는 실행 영수증 8건에서 집계</p>
+      </div>
+    </div>
+  </div>
+</section>
+
+<!-- 4.7 Judge Mode -->
+<section id="judge" data-nav-section>
+  <div class="frame" style="max-width: 720px;">
+    <div class="section-head">
+      <p class="caption-upper">Judge Mode</p>
+      <h2 class="display-lg">공개 저장소로 즉석 실행</h2>
+      <p class="helper">계정 연결 없이 공개 저장소 URL 하나로 전체 파이프라인을 검증합니다.</p>
+    </div>
+    <form class="judge-form" onsubmit="return false;">
+      <input class="input" type="url" placeholder="https://github.com/org/repo" aria-label="공개 저장소 URL" />
+      <button class="button-outline" type="submit">즉석 실행</button>
+    </form>
+
+    <div class="timeline" aria-label="파이프라인 진행 타임라인">
+      <div class="tl-step">
+        <div class="tl-rail"><span class="tl-dot done"></span><span class="tl-line"></span></div>
+        <div class="tl-body">
+          <span class="tl-name">Scout — 수집 완료</span>
+          <span class="caption">커밋 3 · 리뷰 1 · 이슈 2 <a class="link-info" href="#">근거 →</a></span>
+        </div>
+      </div>
+      <div class="tl-step">
+        <div class="tl-rail"><span class="tl-dot done"></span><span class="tl-line"></span></div>
+        <div class="tl-body">
+          <span class="tl-name">Compiler — 실행 계약 3개 생성</span>
+          <span class="caption">우선 행동 3개, 성공 조건 6개</span>
+        </div>
+      </div>
+      <div class="tl-step">
+        <div class="tl-rail"><span class="tl-dot active"></span><span class="tl-line"></span></div>
+        <div class="tl-body">
+          <span class="tl-name" style="color: var(--info);">Policy — 금지 범위 검사 중 · 3/6</span>
+          <span class="caption">진행 중 상태는 단계 이름을 텍스트로 노출</span>
+        </div>
+      </div>
+      <div class="tl-step pending">
+        <div class="tl-rail"><span class="tl-dot"></span><span class="tl-line"></span></div>
+        <div class="tl-body"><span class="tl-name">승인 게이트</span></div>
+      </div>
+      <div class="tl-step pending">
+        <div class="tl-rail"><span class="tl-dot"></span><span class="tl-line"></span></div>
+        <div class="tl-body"><span class="tl-name">Executor</span></div>
+      </div>
+      <div class="tl-step pending">
+        <div class="tl-rail"><span class="tl-dot"></span></div>
+        <div class="tl-body"><span class="tl-name">Verifier</span></div>
+      </div>
+    </div>
+  </div>
+</section>
+
+<footer style="border-top: 1px solid var(--hairline); padding: 32px 0;">
+  <div class="frame" style="display:flex; justify-content:space-between; flex-wrap:wrap; gap:12px;">
+    <span class="caption">First Move — DESIGN.md 프리뷰 · 잉크 단일 CTA · 증거가 곧 장식</span>
+    <span class="caption">docs/DESIGN.md 기준</span>
+  </div>
+</footer>
+
+<script>
+(function () {
+  var links = document.querySelectorAll('.section-nav a');
+  var byId = {};
+  links.forEach(function (a) { byId[a.getAttribute('href').slice(1)] = a; });
+  var sections = Array.prototype.slice.call(document.querySelectorAll('[data-nav-section]'));
+  var NAV_OFFSET = 80;
+
+  function activate(id) {
+    links.forEach(function (a) { a.removeAttribute('aria-current'); });
+    var link = byId[id];
+    if (link) {
+      link.setAttribute('aria-current', 'true');
+      link.scrollIntoView({ block: 'nearest', inline: 'nearest' });
+    }
+  }
+
+  function update() {
+    var current = sections[0];
+    for (var i = 0; i < sections.length; i++) {
+      if (sections[i].getBoundingClientRect().top <= NAV_OFFSET) current = sections[i];
+    }
+    // 바닥까지 스크롤하면 마지막 섹션 확정
+    if (window.innerHeight + window.scrollY >= document.body.scrollHeight - 2) current = sections[sections.length - 1];
+    activate(current.id);
+  }
+
+  window.addEventListener('scroll', update, { passive: true });
+  window.addEventListener('resize', update);
+  update();
+})();
+</script>
+
+</body>
+</html>
