@@ -4,8 +4,19 @@
 
 ## 로컬 실행
 
+### 간편 실행
+
+- macOS: Finder에서 `run-local.command`를 더블클릭하거나 터미널에서 `./run-local.command`를 실행합니다.
+- Windows: 파일 탐색기에서 `run-local.cmd`를 더블클릭합니다.
+
+실행 파일은 Node.js 20.9 이상이 없으면 설치를 시도하고, `npm ci`로 의존성을 설치한 뒤 개발 서버를 시작합니다. macOS 자동 설치에는 [Homebrew](https://brew.sh), Windows 자동 설치에는 `winget`이 필요합니다.
+
+### 직접 실행
+
+Node.js 20.9 이상을 설치한 뒤 다음 명령을 실행합니다.
+
 ```bash
-npm install
+npm ci
 npm run dev
 ```
 
