@@ -9,6 +9,9 @@
 .env*
 !.env.example
 
+# azd 환경 (배포 시크릿 포함)
+/.azure
+
 # logs and editor files
 npm-debug.log*
 .DS_Store
