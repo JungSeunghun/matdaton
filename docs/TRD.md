@@ -38,7 +38,7 @@ flowchart TB
 | 오케스트레이션 | Microsoft Agent Framework | 오케스트레이션 계층 — 5개 에이전트 워크플로 그래프, fan-out, 상태 전이 |
 | 추론 | Microsoft Foundry 모델 배포 | 구조화 출력 (JSON Schema) |
 | 저장소 | Azure Cosmos DB (NoSQL) | 실행 계약·영수증·측정 이벤트 |
-| 비밀 관리 | Azure Key Vault + managed identity | GitHub 자격 증명 |
+| 비밀 관리 | Azure Key Vault + managed identity | OAuth 클라이언트 시크릿·토큰 암호화 키·HMAC 서명 키 |
 | 관측 | Application Insights | `executionId` 단일 trace |
 | 스키마 검증 | zod → JSON Schema | 에이전트 간 계약 검증 |
 
@@ -128,9 +128,9 @@ MetricEvent (id = eventId)
 
 ### 6.1 GitHub
 
-- 인증: fine-grained PAT (Key Vault 보관), 필요 권한은 Issues R/W, Contents/PR Read로 최소화.
+- 인증: 로그인 시 발급된 사용자별 GitHub OAuth 액세스 토큰을 그대로 API 호출에 사용한다 (별도 PAT 불요). 스코프는 Issues R/W, Contents/PR Read 수준으로 최소화.
 - 수집: `since` 파라미터로 최근 24시간 필터, ETag 조건부 요청과 인메모리 캐시로 속도 제한 대응.
-- Judge Mode: 공개 저장소는 무인증 또는 읽기 전용 토큰으로 조회하고 쓰기 API를 호출하지 않는다.
+- Judge Mode: 서버가 보관하는 읽기 전용 토큰(Key Vault)으로 공개 저장소를 조회해 무인증 속도 제한(시간당 60회)을 회피하고, 쓰기 API를 호출하지 않는다.
 
 ### 6.2 캘린더
 
@@ -139,26 +139,26 @@ MetricEvent (id = eventId)
 
 ## 7. 보안 설계
 
-- **사용자 인증:** GitHub OAuth 로그인으로 `userId`를 확정하고 서명된 세션 쿠키를 사용한다. 사용자별 fine-grained PAT는 Key Vault에 사용자 스코프 시크릿으로 보관한다. Judge Mode는 로그인 없이 읽기 전용으로만 동작한다.
+- **사용자 인증:** GitHub OAuth 로그인으로 `userId`를 확정하고 서명된 세션 쿠키를 사용한다. OAuth 액세스 토큰이 유일한 GitHub 자격 증명이며, Key Vault의 암호화 키로 암호화해 서버 측(Cosmos DB)에 보관하고 클라이언트에 노출하지 않는다. Judge Mode는 로그인 없이 읽기 전용으로만 동작한다.
 - **승인 토큰:** `{ executionId, approvedNodeHashes, expiresAt }`를 서버 서명(HMAC)으로 발급. 만료 10분, 노드 해시 불일치 시 실행 거부.
 - **승인 전 읽기 전용:** 쓰기 도구는 토큰 검증 미들웨어를 거치며 위반 시 403과 감사 로그를 남긴다.
 - **프롬프트 인젝션 격리:** 이슈·PR 본문은 `untrusted_content` 블록으로 래핑해 모델에 전달하고, Policy Agent가 지시문 패턴을 검사해 의심 노드를 차단한다.
-- **비밀 관리:** GitHub 토큰·서명 키는 Key Vault, App Service는 managed identity로 접근. 코드·로그·클라이언트에 비밀 미노출.
+- **비밀 관리:** OAuth 클라이언트 시크릿·토큰 암호화 키·HMAC 서명 키·Judge Mode 읽기 전용 토큰은 Key Vault, App Service는 managed identity로 접근. 코드·로그·클라이언트에 비밀 미노출.
 - **최소 권한:** Cosmos DB·Key Vault RBAC를 App Service managed identity에만 부여한다.
 
 ## 8. Verifier 규칙 (결정적)
 
 | 규칙 | 검사 방법 | 실패 시 |
 | --- | --- | --- |
-| 근거 URL 실존 | 모든 `evidenceUrls`에 HEAD/GET 요청으로 2xx 확인 | 해당 행동 실패 표시 |
+| 근거 URL 실존 | GitHub 리소스는 사용자 OAuth 토큰으로 인증된 API 재조회, 그 외 URL은 HEAD/GET 2xx 확인 (비공개 저장소 404 오탐 방지) | 해당 행동 실패 표시 |
 | 생성물 실존 | 할 일은 GitHub Issues API, 코멘트 초안은 자체 실행 API로 재조회 | 노드 실패, 재시도 허용 |
 | 금지 행동 부재 | 도구 호출 로그에 금지 범위 API 호출 없음 확인 | 영수증에 위반 기록 |
 | 승인 해시 일치 | 실행된 노드 해시가 승인 해시와 동일한지 비교 | 실행 결과 거부 |
-| 90초 타이머 | `button_clicked`→`approval_completed` 이벤트 시간 계산 | 실측값 그대로 기록 |
+| 90초 타이머 | `button_clicked`→`approval_completed` 이벤트 시간 계산, 90초 이하면 통과 | 규칙 실패로 표시하되 실행 결과는 무효화하지 않고 실측값을 영수증에 기록 |
 
 LLM 판단을 사용하지 않으며 모든 규칙은 코드로 실행한다.
 
-Judge Mode에서는 쓰기 노드가 실행되지 않으므로 근거 URL 실존·금지 행동 부재·90초 타이머만 검사하고, 영수증에 검사 범위를 명시한다.
+Judge Mode는 승인 단계가 없으므로 수집 완료·실행 계약 컴파일·근거 URL 실존·금지 행동 부재(쓰기 API 호출 없음)만 검사하고, 승인 해시 일치·90초 타이머는 검사 대상에서 제외하며 영수증에 검사 범위를 명시한다.
 
 ## 9. 관측성
 
@@ -173,7 +173,7 @@ Judge Mode에서는 쓰기 노드가 실행되지 않으므로 근거 URL 실존
 | App Service | Linux, Node 20, B1 이상 | Next.js 앱·API 호스팅 |
 | Microsoft Foundry | 모델 배포 1개 (구조화 출력 지원 모델) | 에이전트 추론 |
 | Cosmos DB | NoSQL, serverless | 실행·측정 데이터 |
-| Key Vault | Standard | GitHub 토큰, HMAC 서명 키 |
+| Key Vault | Standard | OAuth 클라이언트 시크릿, 토큰 암호화 키, HMAC 서명 키, Judge Mode 읽기 전용 토큰 |
 | Application Insights | workspace 기반 | trace·이벤트 |
 
 모든 리소스는 Bicep 템플릿(`infra/`)으로 정의해 저장소에 포함하고 azd로 프로비저닝한다. 배포는 GitHub Actions로 `main` push 시 App Service에 자동 배포한다.
