@@ -67,15 +67,18 @@ Scout(병렬) → Compiler → Policy → 사용자 승인 → Executor → Veri
 - Verifier 실패 시 자동 성공 처리를 금지하고 실패 노드만 수동 재시도를 허용한다.
 - 모든 단계는 하나의 `executionId`로 연결한다.
 
-### 3.2 Copilot SDK 도구 정의
+### 3.2 에이전트 도구 정의
+
+사용자 대면 Copilot SDK 앱 도구(`start_day`, `approve_execution` 등)는 [AGENTS.md](AGENTS.md) 5장을 따른다. 아래는 에이전트가 내부에서 호출하는 도구다.
 
 | 도구 | 종류 | 설명 |
 | --- | --- | --- |
-| `get_overnight_commits` | 읽기 | 최근 24시간 커밋 조회 |
-| `get_issue_activity` | 읽기 | 이슈 댓글·리뷰 요청 조회 |
-| `get_today_schedule` | 읽기 | ICS 파싱으로 오늘 일정·가용 시간 계산 |
-| `create_todo` | 쓰기 | 연결된 GitHub 저장소에 `first-move` 라벨 이슈로 할 일 생성 (승인 토큰 필수) |
-| `draft_issue_comment` | 쓰기 | 이슈 코멘트 초안을 Cosmos DB에 저장, GitHub에 게시하지 않음 (승인 토큰 필수) |
+| `github.list_commits` | 읽기 | 최근 24시간 커밋 조회 |
+| `github.list_issue_events` | 읽기 | 이슈 댓글 조회 |
+| `github.list_review_requests` | 읽기 | 리뷰 요청 조회 |
+| `calendar.read_ics` | 읽기 | ICS 파싱으로 오늘 일정·가용 시간 계산 |
+| `github.create_todo_issue` | 쓰기 | 연결된 GitHub 저장소에 `first-move` 라벨 이슈로 할 일 생성 (승인 토큰 필수) |
+| `drafts.save_issue_comment` | 쓰기 | 이슈 코멘트 초안을 Cosmos DB에 저장, GitHub에 게시하지 않음 (승인 토큰 필수) |
 | `verify_receipt` | 읽기 | Verifier 규칙 실행과 영수증 발급 |
 
 쓰기 도구는 유효한 `ApprovalToken` 없이 호출되면 403을 반환한다.
@@ -101,13 +104,14 @@ Scout(병렬) → Compiler → Policy → 사용자 승인 → Executor → Veri
 ```text
 Execution (id = executionId)
 ├── userId, repoRef, mode: "daily" | "judge"
-├── status: collecting | planning | awaiting_approval | executing | verifying | done | failed
+├── status: created | scouting | compiling | policy_check | waiting_approval
+│           | executing | verifying | completed | failed | rejected | expired  (AGENTS.md 3장과 동일)
 ├── overnightDiff: OvernightDiff
 ├── contract: ExecutionContract
 │   ├── actions[3]: { nodeId, title, evidenceUrls[], successCriteria, forbidden[] }
 │   └── contractHash
 ├── policyReport: { findings[], blockedNodes[] }
-├── approval: { token, approvedNodeHashes[], excludedNodes[], expiresAt }
+├── approval: { token, approvedNodeIds[], approvedHash, excludedNodes[], expiresAt }
 ├── executionResult: { nodes[]: { nodeId, toolCall, resultRef, idempotencyKey, status } }
 ├── receipt: EvidenceReceipt
 │   ├── rules[]: { name, passed, evidence }
@@ -117,8 +121,9 @@ Execution (id = executionId)
 
 MetricEvent (id = eventId)
 ├── userId, executionId, date
-├── type: button_clicked | approval_completed | first_action_done | ...
-└── timestamp
+├── name: button_clicked | approval_completed | first_action_done | screen_viewed | ...
+├── value, source
+└── recordedAt
 ```
 
 - 멱등성: 쓰기 노드는 `executionId + nodeId` 기반 idempotency key로 중복 생성을 방지한다.
@@ -140,7 +145,7 @@ MetricEvent (id = eventId)
 ## 7. 보안 설계
 
 - **사용자 인증:** GitHub OAuth 로그인으로 `userId`를 확정하고 서명된 세션 쿠키를 사용한다. OAuth 액세스 토큰이 유일한 GitHub 자격 증명이며, Key Vault의 암호화 키로 암호화해 서버 측(Cosmos DB)에 보관하고 클라이언트에 노출하지 않는다. Judge Mode는 로그인 없이 읽기 전용으로만 동작한다.
-- **승인 토큰:** `{ executionId, approvedNodeHashes, expiresAt }`를 서버 서명(HMAC)으로 발급. 만료 10분, 노드 해시 불일치 시 실행 거부.
+- **승인 토큰:** `{ executionId, approvedNodeIds, approvedHash, allowedTools, issuedAt, expiresAt }`를 서버 서명(HMAC)으로 발급 (AGENTS.md 6장과 동일 계약). 만료 10분, 해시 불일치·허용 외 도구 요청 시 실행 거부.
 - **승인 전 읽기 전용:** 쓰기 도구는 토큰 검증 미들웨어를 거치며 위반 시 403과 감사 로그를 남긴다.
 - **프롬프트 인젝션 격리:** 이슈·PR 본문은 `untrusted_content` 블록으로 래핑해 모델에 전달하고, Policy Agent가 지시문 패턴을 검사해 의심 노드를 차단한다.
 - **비밀 관리:** OAuth 클라이언트 시크릿·토큰 암호화 키·HMAC 서명 키·Judge Mode 읽기 전용 토큰은 Key Vault, App Service는 managed identity로 접근. 코드·로그·클라이언트에 비밀 미노출.

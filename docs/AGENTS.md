@@ -51,7 +51,7 @@ created → scouting → compiling → policy_check
 
 | 항목 | 내용 |
 | --- | --- |
-| 입력 | `userId`, 저장소 목록, 조회 기준 시각(기본 24시간), ICS 일정 URL |
+| 입력 | `userId`, `repoRef`(연결 저장소), 조회 기준 시각(기본 24시간), ICS 일정 URL |
 | 도구 | `github.list_commits`, `github.list_issue_events`, `github.list_review_requests`, `calendar.read_ics` |
 | 출력 | `OvernightDiff` — 커밋·이슈 댓글·리뷰 요청 목록, 오늘 회의, 가용 시간, 소스별 성공 여부 |
 | 실패 처리 | 소스 단위 timeout, 실패 소스는 `missingSources[]`에 기록하고 계속 진행 |
@@ -90,7 +90,7 @@ created → scouting → compiling → policy_check
 | 항목 | 내용 |
 | --- | --- |
 | 입력 | 승인 토큰, 승인된 노드 목록 |
-| 도구 | `github.create_todo_issue`, `github.draft_issue_comment` (쓰기 도구는 이 2종으로 제한) |
+| 도구 | `github.create_todo_issue`, `drafts.save_issue_comment` — 쓰기 도구는 이 2종으로 제한하며, 코멘트 초안은 Cosmos DB에만 저장하고 GitHub에 게시하지 않는다 |
 | 출력 | `ExecutionResult` — 노드별 성공 여부, 생성된 리소스 URL, 멱등성 키, 오류 코드 |
 | 사전 검증 | 토큰 유효성, 만료 시각, 승인 항목 해시와 실행 인자 해시 일치 |
 | 멱등성 | `executionId:nodeId` 키로 중복 생성 방지 |
@@ -102,8 +102,8 @@ created → scouting → compiling → policy_check
 | 항목 | 내용 |
 | --- | --- |
 | 입력 | `ExecutionContract`, `ExecutionResult`, 측정 이벤트 |
-| 검사 | 근거 URL 실존, 생성된 할 일 API 재조회 일치, 금지 행동 로그 부재, 미승인 노드 미실행, 시동 시간 90초 이하 |
-| 시동 시간 | `start_day` 버튼 클릭부터 첫 행동 승인까지 자동 측정하며 90초 이하를 통과 기준으로 한다 |
+| 검사 | 근거 URL 실존, 생성물 실존(할 일은 GitHub Issues API, 코멘트 초안은 자체 실행 API 재조회), 금지 행동 로그 부재, 승인 해시 일치(미승인 노드 미실행 포함), 시동 시간 90초 이하 |
+| 시동 시간 | `button_clicked`→`approval_completed` 이벤트로 자동 측정하며(PRD와 동일한 유일 정의) 90초 이하를 통과 기준으로 한다. 초과 시 규칙 실패로 표시하되 실행 결과는 무효화하지 않는다 |
 | 출력 | `EvidenceReceipt` — 규칙별 통과·실패, 시동 시간, 절약 시간, 원본 이벤트 참조 |
 | 규칙 | 실패를 자동으로 성공 처리하지 않으며 전체 재실행을 트리거하지 않는다 |
 
@@ -131,9 +131,9 @@ created → scouting → compiling → policy_check
   "executionId": "exec_01",
   "approvedNodeIds": ["node_todo_1", "node_todo_2"],
   "approvedHash": "sha256:...",
-  "allowedTools": ["github.create_todo_issue", "github.draft_issue_comment"],
+  "allowedTools": ["github.create_todo_issue", "drafts.save_issue_comment"],
   "issuedAt": "2026-08-24T07:52:00Z",
-  "expiresAt": "2026-08-24T08:07:00Z"
+  "expiresAt": "2026-08-24T08:02:00Z"
 }
 ```
 
@@ -157,20 +157,22 @@ Execution (partition key: userId)
 
 - 모든 문서는 Cosmos DB에 저장하며 새로고침 후 복원 가능해야 한다.
 - `MetricEvent`는 append-only로 저장해 생산성 계산을 원본에서 재현할 수 있게 한다.
-- `MetricEvent.name`은 최소 4종 지표를 포함한다: `startup_seconds`(시동 시간), `screens_viewed`(확인한 화면 수), `first_action_minutes`(첫 유의미 작업 착수), `evidence_link_rate`(근거 연결률). 일별 대시보드는 이 원본 이벤트에서만 계산한다.
+- `MetricEvent.name`에는 원본 이벤트(`button_clicked`, `approval_completed`, `first_action_done`, `screen_viewed` 등)를 기록하고, 4종 지표 — `startup_seconds`(시동 시간), `screens_viewed`(확인한 화면 수), `first_action_minutes`(첫 유의미 작업 착수), `evidence_link_rate`(근거 연결률) — 는 이 원본 이벤트에서만 파생 계산한다. 일별 대시보드는 파생 계산식을 저장소에 포함해 재현 가능해야 한다.
 
 ## 8. Judge Mode 규칙
 
 - 입력은 공개 GitHub 저장소 URL 하나다.
 - Scout는 해당 저장소의 최근 24시간 변경만 조회한다.
 - Executor의 쓰기 도구는 비활성화하고 드라이런 결과만 표시한다.
-- 변경이 없는 저장소는 실패가 아니라 "변경 없음" 계약으로 처리한다.
-- 실행 결과는 일반 실행과 같은 `EvidenceReceipt` 형식으로 발급한다.
+- 변경이 없는 저장소는 실패가 아니라 "변경 없음" 계약으로 처리하고, ICS 미입력은 "일정 없음"으로 처리한다.
+- Verifier는 수집 완료·실행 계약 컴파일·근거 URL 실존·금지 행동 부재(쓰기 API 호출 없음)만 검사하고, 승인 해시 일치·90초 타이머는 검사 대상에서 제외한다.
+- 실행 결과는 일반 실행과 같은 `EvidenceReceipt` 형식으로 발급하되 검사 범위를 영수증에 명시하며, `mode: "judge"`, `userId: "judge"`로 저장한다.
 
 ## 9. 관측과 보안
 
 - 모든 에이전트·도구·외부 호출은 `executionId`를 Application Insights trace에 전파한다.
-- GitHub 토큰은 Key Vault에 보관하고 managed identity로 접근한다.
+- 사용자 GitHub 자격 증명은 로그인 시 발급된 OAuth 액세스 토큰 하나이며(FR-24), Key Vault의 암호화 키로 암호화해 서버 측(Cosmos DB)에 보관하고 클라이언트에 노출하지 않는다.
+- OAuth 클라이언트 시크릿·토큰 암호화 키·HMAC 서명 키·Judge Mode 읽기 전용 토큰은 Key Vault에 보관하고 managed identity로 접근한다.
 - 로그와 trace에 토큰, 이슈 본문 원문, 개인 식별 정보를 기록하지 않는다.
 - 이슈·PR 본문은 요약 후 사용하며 원문 지시는 Policy Agent 검사 대상이다.
 
@@ -184,7 +186,7 @@ Execution (partition key: userId)
 4. Scout 소스 하나를 강제로 실패시켜도 나머지 흐름이 완료되고 누락이 표시된다.
 5. Judge Mode에 임의 공개 저장소를 넣으면 새 `executionId`로 전체 흐름이 실행된다.
 6. 정상·실패 실행 각각이 Application Insights에서 단일 trace로 조회된다.
-7. 시동 시간이 버튼 클릭부터 첫 행동 승인까지 자동 측정되고 90초 기준으로 검증된다.
+7. 시동 시간이 `button_clicked`부터 `approval_completed`까지 자동 측정되고 90초 기준으로 검증된다.
 8. 4종 `MetricEvent`가 일별로 누적되어 대시보드에서 재현 가능한 계산식으로 조회된다.
 
 ## 11. 참고 문서
