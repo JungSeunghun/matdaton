@@ -86,7 +86,8 @@ resource foundryModelDeployment 'Microsoft.CognitiveServices/accounts/deployment
   parent: foundry
   name: foundryModelName
   sku: {
-    name: 'GlobalStandard'
+    // 이 구독은 GlobalStandard 쿼터가 0 — 리전 Standard만 가용
+    name: 'Standard'
     capacity: foundryModelCapacity
   }
   properties: {
