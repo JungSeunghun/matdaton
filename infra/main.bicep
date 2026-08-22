@@ -13,6 +13,20 @@ param location string
 @description('승인 토큰 서명용 HMAC 시크릿')
 param hmacSecret string
 
+@secure()
+@description('GitHub API 토큰 — 미설정 시 GitHub 연동 비활성')
+param githubToken string = ''
+
+@secure()
+@description('Judge Mode 읽기 전용 GitHub 토큰 — 미설정 시 githubToken 사용')
+param judgeGithubToken string = ''
+
+@description('기본 연결 저장소 (owner/repo)')
+param firstMoveRepo string = ''
+
+@description('기본 ICS 일정 URL')
+param firstMoveIcsUrl string = ''
+
 @description('Foundry(AI Services) 리전 — 모델 가용성에 따라 분리 가능')
 param foundryLocation string = location
 
@@ -40,6 +54,10 @@ module resources 'resources.bicep' = {
     location: location
     environmentName: environmentName
     hmacSecret: hmacSecret
+    githubToken: githubToken
+    judgeGithubToken: judgeGithubToken
+    firstMoveRepo: firstMoveRepo
+    firstMoveIcsUrl: firstMoveIcsUrl
     foundryLocation: foundryLocation
     foundryModelName: foundryModelName
     foundryModelVersion: foundryModelVersion

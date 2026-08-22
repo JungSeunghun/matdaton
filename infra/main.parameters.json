@@ -11,6 +11,18 @@
     "hmacSecret": {
       "value": "${FIRST_MOVE_HMAC_SECRET}"
     },
+    "githubToken": {
+      "value": "${GITHUB_TOKEN=}"
+    },
+    "judgeGithubToken": {
+      "value": "${JUDGE_GITHUB_TOKEN=}"
+    },
+    "firstMoveRepo": {
+      "value": "${FIRST_MOVE_REPO=}"
+    },
+    "firstMoveIcsUrl": {
+      "value": "${FIRST_MOVE_ICS_URL=}"
+    },
     "foundryLocation": {
       "value": "${FOUNDRY_LOCATION=eastus2}"
     },
