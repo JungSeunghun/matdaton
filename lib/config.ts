@@ -19,6 +19,7 @@ export type ServerConfig = {
   defaultIcsUrl: string | null;
   cosmos: CosmosConfig | null;
   foundry: FoundryConfig | null;
+  appInsightsConnectionString: string | null;
 };
 
 const DEV_HMAC_SECRET = "dev-insecure-hmac-secret";
@@ -70,6 +71,7 @@ export function getServerConfig(): ServerConfig {
     defaultIcsUrl: readEnv("FIRST_MOVE_ICS_URL"),
     cosmos,
     foundry,
+    appInsightsConnectionString: readEnv("APPLICATIONINSIGHTS_CONNECTION_STRING"),
   };
   return cachedConfig;
 }
