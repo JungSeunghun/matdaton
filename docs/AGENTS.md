@@ -102,9 +102,9 @@ created → scouting → compiling → policy_check
 | 항목 | 내용 |
 | --- | --- |
 | 입력 | `ExecutionContract`, `ExecutionResult`, 측정 이벤트 |
-| 검사 | 근거 URL 실존, 생성물 실존(할 일은 GitHub Issues API, 코멘트 초안은 자체 실행 API 재조회), 금지 행동 로그 부재, 승인 해시 일치(미승인 노드 미실행 포함), 시동 시간 90초 이하 |
-| 시동 시간 | `button_clicked`→`approval_completed` 이벤트로 자동 측정하며(PRD와 동일한 유일 정의) 90초 이하를 통과 기준으로 한다. 초과 시 규칙 실패로 표시하되 실행 결과는 무효화하지 않는다 |
-| 출력 | `EvidenceReceipt` — 규칙별 통과·실패, 시동 시간, 절약 시간, 원본 이벤트 참조 |
+| 검사 | 근거 URL 실존, 생성물 실존(할 일은 GitHub Issues API, 코멘트 초안은 자체 실행 API 재조회), 금지 행동 로그 부재, 승인 해시 일치(미승인 노드 미실행 포함), 준비 시간 90초 이하 |
+| 준비 시간 | `button_clicked`→`approval_completed` 이벤트로 자동 측정하며(PRD와 동일한 유일 정의) 90초 이하를 통과 기준으로 한다. 초과 시 규칙 실패로 표시하되 실행 결과는 무효화하지 않는다 |
+| 출력 | `EvidenceReceipt` — 규칙별 통과·실패, 준비 시간, 절약 시간, 원본 이벤트 참조 |
 | 규칙 | 실패를 자동으로 성공 처리하지 않으며 전체 재실행을 트리거하지 않는다 |
 
 ## 5. Copilot SDK 앱 도구
@@ -119,7 +119,7 @@ created → scouting → compiling → policy_check
 | `run_judge_mode` | 읽기 전용 워크플로 시작 | 공개 저장소 URL 입력 |
 | `get_dashboard_metrics` | 없음 | 불필요 |
 
-- `get_dashboard_metrics`는 일별 시동 시간·절약 시간·화면 수·착수 시간 누적을 반환해 20회 이상 실측 데이터를 대시보드에 노출한다.
+- `get_dashboard_metrics`는 일별 준비 시간·절약 시간·화면 수·착수 시간 누적을 반환해 20회 이상 실측 데이터를 대시보드에 노출한다.
 - 도구 인자는 Zod 스키마로 검증한다.
 - Copilot SDK는 브라우저가 아닌 서버에서만 실행하고 자격 증명을 클라이언트에 노출하지 않는다.
 - 세션 ID는 `executionId`와 함께 저장해 대화→실행→영수증을 단일 증거로 연결한다.
@@ -157,7 +157,7 @@ Execution (partition key: userId)
 
 - 모든 문서는 Cosmos DB에 저장하며 새로고침 후 복원 가능해야 한다.
 - `MetricEvent`는 append-only로 저장해 생산성 계산을 원본에서 재현할 수 있게 한다.
-- `MetricEvent.name`에는 원본 이벤트(`button_clicked`, `approval_completed`, `first_action_done`, `screen_viewed` 등)를 기록하고, 4종 지표 — `startup_seconds`(시동 시간), `screens_viewed`(확인한 화면 수), `first_action_minutes`(첫 유의미 작업 착수), `evidence_link_rate`(근거 연결률) — 는 이 원본 이벤트에서만 파생 계산한다. 일별 대시보드는 파생 계산식을 저장소에 포함해 재현 가능해야 한다.
+- `MetricEvent.name`에는 원본 이벤트(`button_clicked`, `approval_completed`, `first_action_done`, `screen_viewed` 등)를 기록하고, 4종 지표 — `startup_seconds`(준비 시간), `screens_viewed`(확인한 화면 수), `first_action_minutes`(첫 유의미 작업 착수), `evidence_link_rate`(근거 연결률) — 는 이 원본 이벤트에서만 파생 계산한다. 일별 대시보드는 파생 계산식을 저장소에 포함해 재현 가능해야 한다.
 
 ## 8. Judge Mode 규칙
 
@@ -186,7 +186,7 @@ Execution (partition key: userId)
 4. Scout 소스 하나를 강제로 실패시켜도 나머지 흐름이 완료되고 누락이 표시된다.
 5. Judge Mode에 임의 공개 저장소를 넣으면 새 `executionId`로 전체 흐름이 실행된다.
 6. 정상·실패 실행 각각이 Application Insights에서 단일 trace로 조회된다.
-7. 시동 시간이 `button_clicked`부터 `approval_completed`까지 자동 측정되고 90초 기준으로 검증된다.
+7. 준비 시간이 `button_clicked`부터 `approval_completed`까지 자동 측정되고 90초 기준으로 검증된다.
 8. 4종 `MetricEvent`가 일별로 누적되어 대시보드에서 재현 가능한 계산식으로 조회된다.
 
 ## 11. 참고 문서

@@ -93,7 +93,7 @@ Scout(병렬) → Compiler → Policy → 사용자 승인 → Executor → Veri
 | `POST /api/executions/:id/approve` | 노드 선택·제외를 담은 승인, `ApprovalToken` 발급 후 Executor 실행 |
 | `POST /api/executions/:id/retry/:nodeId` | 실패 노드만 재시도 |
 | `GET /api/executions/:id/receipt` | 증거 영수증 조회 |
-| `GET /api/metrics/daily` | 일별 시동 시간·절약 시간 대시보드 데이터 |
+| `GET /api/metrics/daily` | 일별 준비 시간·절약 시간 대시보드 데이터 |
 | `POST /api/judge` | Judge Mode — 공개 저장소 URL로 읽기 전용 즉석 실행 |
 | `GET /api/health` | 상태 엔드포인트 |
 
