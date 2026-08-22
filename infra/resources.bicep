@@ -4,6 +4,15 @@ param environmentName string
 @secure()
 param hmacSecret string
 
+@secure()
+param githubToken string
+
+@secure()
+param judgeGithubToken string
+
+param firstMoveRepo string
+param firstMoveIcsUrl string
+
 param foundryLocation string
 param foundryModelName string
 param foundryModelVersion string
@@ -130,6 +139,19 @@ resource secretHmac 'Microsoft.KeyVault/vaults/secrets@2023-07-01' = {
   properties: { value: hmacSecret }
 }
 
+// 빈 값이어도 생성 — 앱은 빈 문자열을 미설정으로 처리
+resource secretGithubToken 'Microsoft.KeyVault/vaults/secrets@2023-07-01' = {
+  parent: keyVault
+  name: 'github-token'
+  properties: { value: githubToken }
+}
+
+resource secretJudgeGithubToken 'Microsoft.KeyVault/vaults/secrets@2023-07-01' = {
+  parent: keyVault
+  name: 'judge-github-token'
+  properties: { value: judgeGithubToken }
+}
+
 // ---------- 호스팅: App Service (Linux, Node 20) ----------
 
 resource appServicePlan 'Microsoft.Web/serverfarms@2024-04-01' = {
@@ -167,6 +189,10 @@ resource web 'Microsoft.Web/sites@2024-04-01' = {
         { name: 'FOUNDRY_DEPLOYMENT', value: foundryModelDeployment.name }
         { name: 'FOUNDRY_API_KEY', value: '@Microsoft.KeyVault(SecretUri=${secretFoundryApiKey.properties.secretUri})' }
         { name: 'FIRST_MOVE_HMAC_SECRET', value: '@Microsoft.KeyVault(SecretUri=${secretHmac.properties.secretUri})' }
+        { name: 'GITHUB_TOKEN', value: '@Microsoft.KeyVault(SecretUri=${secretGithubToken.properties.secretUri})' }
+        { name: 'JUDGE_GITHUB_TOKEN', value: '@Microsoft.KeyVault(SecretUri=${secretJudgeGithubToken.properties.secretUri})' }
+        { name: 'FIRST_MOVE_REPO', value: firstMoveRepo }
+        { name: 'FIRST_MOVE_ICS_URL', value: firstMoveIcsUrl }
       ]
     }
   }

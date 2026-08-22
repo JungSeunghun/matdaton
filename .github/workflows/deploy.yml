@@ -34,6 +34,11 @@ jobs:
       AZURE_ENV_NAME: ${{ vars.AZURE_ENV_NAME }}
       AZURE_LOCATION: ${{ vars.AZURE_LOCATION }}
       FIRST_MOVE_HMAC_SECRET: ${{ secrets.FIRST_MOVE_HMAC_SECRET }}
+      # GITHUB_ 접두사 시크릿은 예약어라 FIRST_MOVE_GITHUB_TOKEN으로 저장
+      GITHUB_TOKEN: ${{ secrets.FIRST_MOVE_GITHUB_TOKEN }}
+      JUDGE_GITHUB_TOKEN: ${{ secrets.JUDGE_GITHUB_TOKEN }}
+      FIRST_MOVE_REPO: ${{ vars.FIRST_MOVE_REPO }}
+      FIRST_MOVE_ICS_URL: ${{ vars.FIRST_MOVE_ICS_URL }}
     steps:
       - uses: actions/checkout@v4
       - uses: Azure/setup-azd@v2
