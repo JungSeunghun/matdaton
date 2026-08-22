@@ -1,8 +1,6 @@
-export type ExecutionProgressEvent = {
-  executionId: string;
-  stage: string;
-  detail?: unknown;
-};
+import type { ExecutionProgressEvent } from "@/lib/contracts/schemas";
+
+export type { ExecutionProgressEvent };
 
 export type ExecutionEventListener = (event: ExecutionProgressEvent) => void;
 
