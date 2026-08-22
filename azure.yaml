@@ -1,0 +1,9 @@
+# yaml-language-server: $schema=https://raw.githubusercontent.com/Azure/azure-dev/main/schemas/v1.0/azure.yaml.json
+name: matdaton
+metadata:
+  template: matdaton-first-move
+services:
+  web:
+    project: .
+    language: ts
+    host: appservice
